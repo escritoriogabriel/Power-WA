@@ -22,6 +22,12 @@ Para produção, preencha os valores reais no gerenciador de segredos/configura�
 
 O painel exige `POWER_WA_OPERATOR_TOKEN`. O operador informa esse valor na tela de login; ele é enviado em `Authorization: Bearer` apenas nas chamadas da sessão atual e não é embutido no bundle. Em produção, mantenha o serviço atrás de HTTPS e de uma rede privada ou reverse proxy com controles adicionais de acesso.
 
+## Conectar o WhatsApp
+
+Com o OpenWA rodando, preencha no `.env` do Power-WA `OPENWA_BASE_URL` sem o sufixo `/api`, `OPENWA_API_KEY` com uma chave OpenWA de role `operator` ou superior e `OPENWA_SESSION_NAME` com um nome de 3–50 caracteres. Abra o painel, informe o token de operador e clique em **Criar e conectar WhatsApp**. O Power-WA cria a sessão, inicia o motor, consulta o QR e mostra o código na própria tela. No celular, use **WhatsApp → Configurações → Aparelhos conectados → Conectar aparelho**.
+
+Para que as mensagens recebidas cheguem ao Power-WA, configure também `OPENWA_PUBLIC_URL` como uma origem HTTPS publicamente alcançável do Power-WA e `OPENWA_WEBHOOK_SECRET` com pelo menos 16 caracteres aleatórios. Quando a sessão chegar a `ready`, o Power-WA registra automaticamente `POST /api/webhooks/openwa` no OpenWA com os eventos `message.received` e `session.status`. Sem uma URL pública HTTPS, a conta ainda pode ser conectada, mas a triagem de mensagens recebidas não funcionará fora de uma rede que consiga alcançar o serviço.
+
 ## Webhook OpenWA
 
 Configure o OpenWA para enviar `message.received` para:

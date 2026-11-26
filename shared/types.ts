@@ -41,4 +41,5 @@ export interface AppData {
   leads: Lead[];
   processedDeliveryIds: string[];
   triage: TriageConfig;
+  openwa?: { sessionId: string; sessionName: string; webhookId?: string };
 }

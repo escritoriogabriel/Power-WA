@@ -12,7 +12,7 @@ function addMessage(lead: Lead, direction: Message['direction'], body: string, s
 
 async function sendAndRecord(lead: Lead, body: string, data: AppData): Promise<void> {
   addMessage(lead, 'outbound', body, 'power-wa');
-  await sendOpenwaText(lead.chatId, body);
+  await sendOpenwaText(lead.chatId, body, data.openwa?.sessionId);
 }
 
 export interface IncomingMessage {
