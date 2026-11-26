@@ -78,7 +78,7 @@ api.get('/openwa/status', async (_req, res) => {
     }
     return res.json({ integrationConfigured: true, publicUrlConfigured: Boolean(publicWebhookUrl()), webhookConfigured: Boolean(data.openwa?.webhookId), webhookRequired: !data.openwa?.webhookId, session });
   } catch (error) {
-    return res.status(502).json({ error: error instanceof Error ? error.message : 'Não foi possível consultar o OpenWA' });
+    return res.status(502).json({ integrationConfigured: true, publicUrlConfigured: Boolean(publicWebhookUrl()), session: null, error: error instanceof Error ? error.message : 'Não foi possível consultar o OpenWA' });
   }
 });
 

@@ -21,7 +21,12 @@ async function openwaRequest<T>(path: string, init: RequestInit = {}): Promise<T
   const headers = new Headers(init.headers);
   headers.set('X-API-Key', config.openwaApiKey);
   if (init.body && !headers.has('content-type')) headers.set('content-type', 'application/json');
-  const response = await fetch(apiUrl(path), { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(path), { ...init, headers });
+  } catch {
+    throw new Error('Não foi possível alcançar o OpenWA. Verifique se o gateway está ligado e se OPENWA_BASE_URL aponta para o endereço correto, sem /api no final.');
+  }
   const body = await response.text();
   let parsed: unknown = undefined;
   try { parsed = body ? JSON.parse(body) : undefined; } catch { parsed = undefined; }
