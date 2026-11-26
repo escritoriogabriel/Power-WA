@@ -41,3 +41,5 @@ Defina um segredo longo e aleatório no webhook e use o mesmo valor em `OPENWA_W
 ## Estado atual
 
 A persistência padrão é um arquivo JSON local com permissões restritas, adequado para um primeiro ambiente controlado. A camada está isolada em `server/lib/store.ts` para permitir migração posterior para SQLite/PostgreSQL sem alterar o fluxo do painel. O arquivo de dados é ignorado pelo Git.
+
+Para descobrir e configurar todas as variáveis, iniciar o OpenWA e conectar a primeira conta, siga o [guia operacional de setup](docs/SETUP.md) ou execute `./scripts/setup-openwa.sh` em uma máquina com Docker.
