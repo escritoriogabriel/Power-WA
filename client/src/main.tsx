@@ -7,6 +7,16 @@ const statusLabels: Record<LeadStatus, string> = { new: 'Novos', triage: 'Em tri
 type OpenwaSession = { id: string; name: string; status: string; phone?: string | null; pushName?: string | null; lastError?: string | null; };
 type OpenwaConnection = { integrationConfigured: boolean; publicUrlConfigured: boolean; session: OpenwaSession | null; webhookConfigured?: boolean; webhookRequired?: boolean };
 
+async function readApiJson<T>(response: Response): Promise<T> {
+  const body = await response.text();
+  try { return JSON.parse(body) as T; } catch {
+    if (body.trimStart().startsWith('<!DOCTYPE') || body.trimStart().startsWith('<html')) {
+      throw new Error('A API do Power-WA não está disponível nesta URL. Inicie também o backend Express (`npm run dev`) ou use a URL do servidor, não apenas a página do Vite.');
+    }
+    throw new Error('A API do Power-WA devolveu uma resposta inválida.');
+  }
+}
+
 function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem('power-wa.operator-token') ?? '');
   const [tokenInput, setTokenInput] = useState(token);
@@ -25,16 +35,16 @@ function App() {
   async function apiFetch(path: string, options: RequestInit = {}) { const headers = new Headers(options.headers); headers.set('Authorization', `Bearer ${token}`); return fetch(path, { ...options, headers }); }
   async function refreshConnection() {
     if (!token) return;
-    try { const response = await apiFetch('/api/openwa/status'); const payload = await response.json() as OpenwaConnection & { error?: string }; if (typeof payload.integrationConfigured === 'boolean') setConnection(payload); if (!response.ok) throw new Error(payload.error ?? 'Falha ao consultar o OpenWA.'); setConnection(payload); if (payload.session?.status !== 'qr_ready') setQr(''); }
+    try { const response = await apiFetch('/api/openwa/status'); const payload = await readApiJson<OpenwaConnection & { error?: string }>(response); if (typeof payload.integrationConfigured === 'boolean') setConnection(payload); if (!response.ok) throw new Error(payload.error ?? 'Falha ao consultar o OpenWA.'); setConnection(payload); if (payload.session?.status !== 'qr_ready') setQr(''); }
     catch (err) { setConnectionError(err instanceof Error ? err.message : 'Falha ao consultar a conexão.'); }
   }
   async function refresh() {
     if (!token) return; setLoading(true);
     try {
       const [leadResponse, healthResponse] = await Promise.all([apiFetch(`/api/leads?status=${status}&q=${encodeURIComponent(query)}`), fetch('/api/health')]);
-      if (leadResponse.status === 401 || leadResponse.status === 503) { const authPayload = await leadResponse.json().catch(() => ({})) as { error?: string }; signOut(); throw new Error(authPayload.error ?? 'Token de operador inválido ou não configurado.'); }
+      if (leadResponse.status === 401 || leadResponse.status === 503) { const authPayload = await readApiJson<{ error?: string }>(leadResponse).catch(() => ({ error: undefined })); signOut(); throw new Error(authPayload.error ?? 'Token de operador inválido ou não configurado.'); }
       if (!leadResponse.ok) throw new Error('Não foi possível carregar a fila.');
-      const payload = await leadResponse.json() as { leads: Lead[] }; const health = await healthResponse.json() as { integrationConfigured: boolean };
+      const payload = await readApiJson<{ leads: Lead[] }>(leadResponse); const health = await readApiJson<{ integrationConfigured: boolean }>(healthResponse);
       setLeads(payload.leads); if (selected) { const next = payload.leads.find((lead) => lead.id === selected.id); if (next) setSelected(next); } setError(''); void refreshConnection();
       if (!health.integrationConfigured) setConnectionError('Configure OPENWA_BASE_URL e OPENWA_API_KEY no servidor.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar dados.'); }
@@ -46,8 +56,8 @@ function App() {
   const grouped = useMemo(() => leads.reduce<Record<string, number>>((acc, lead) => { acc[lead.status] = (acc[lead.status] ?? 0) + 1; return acc; }, {}), [leads]);
   function signIn() { const clean = tokenInput.trim(); if (!clean) return; sessionStorage.setItem('power-wa.operator-token', clean); setToken(clean); }
   function signOut() { sessionStorage.removeItem('power-wa.operator-token'); setToken(''); setTokenInput(''); setLeads([]); setSelected(null); setConnection(null); setConnectionError(''); }
-  async function connectWhatsApp() { setConnectionBusy(true); setConnectionError(''); try { const response = await apiFetch('/api/openwa/connect', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: sessionName }) }); const payload = await response.json() as { session?: OpenwaSession; error?: string }; if (!response.ok) throw new Error(payload.error ?? 'Não foi possível iniciar a conexão.'); setConnection((current) => ({ ...(current ?? { integrationConfigured: true, publicUrlConfigured: false }), session: payload.session ?? null })); } catch (err) { setConnectionError(err instanceof Error ? err.message : 'Falha ao iniciar a conexão.'); } finally { setConnectionBusy(false); } }
-  async function loadQr() { try { const response = await apiFetch('/api/openwa/qr'); const payload = await response.json() as { qrCode?: string; error?: string }; if (response.ok && payload.qrCode) setQr(payload.qrCode); else if (payload.error) setConnectionError(payload.error); } catch { /* polling retries */ } }
+  async function connectWhatsApp() { setConnectionBusy(true); setConnectionError(''); try { const response = await apiFetch('/api/openwa/connect', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: sessionName }) }); const payload = await readApiJson<{ session?: OpenwaSession; error?: string }>(response); if (!response.ok) throw new Error(payload.error ?? 'Não foi possível iniciar a conexão.'); setConnection((current) => ({ ...(current ?? { integrationConfigured: true, publicUrlConfigured: false }), session: payload.session ?? null })); } catch (err) { setConnectionError(err instanceof Error ? err.message : 'Falha ao iniciar a conexão.'); } finally { setConnectionBusy(false); } }
+  async function loadQr() { try { const response = await apiFetch('/api/openwa/qr'); const payload = await readApiJson<{ qrCode?: string; error?: string }>(response); if (response.ok && payload.qrCode) setQr(payload.qrCode); else if (payload.error) setConnectionError(payload.error); } catch { /* polling retries */ } }
   async function stopWhatsApp() { setConnectionBusy(true); try { await apiFetch('/api/openwa/stop', { method: 'POST' }); setQr(''); await refreshConnection(); } finally { setConnectionBusy(false); } }
   async function changeStatus(next: LeadStatus) { if (!selected) return; await apiFetch(`/api/leads/${selected.id}/status`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: next }) }); await refresh(); }
 
