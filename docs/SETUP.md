@@ -24,7 +24,7 @@ A porta padrão oficial do OpenWA é `2785`.
 
 ### `OPENWA_API_KEY`
 
-É uma chave criada pelo próprio OpenWA. Na primeira inicialização, o OpenWA gera uma chave administrativa e salva o valor em `/app/data/.api-key` dentro do container.
+É uma chave criada pelo próprio OpenWA. Na primeira inicialização, o OpenWA grava a chave inicial em `data/.api-key` no modo executado diretamente ou em `/app/data/.api-key` dentro do container Docker. Por padrão, ela é aleatória e tem o formato `owa_k1_` seguido de 64 caracteres hexadecimais. Se `API_MASTER_KEY` tiver sido definido no ambiente do OpenWA, esse valor é usado como chave inicial; `ALLOW_DEV_API_KEY=true` cria `dev-admin-key` apenas para desenvolvimento local.
 
 Depois de iniciar o OpenWA, leia a chave sem exibi-la em logs:
 
@@ -32,7 +32,17 @@ Depois de iniciar o OpenWA, leia a chave sem exibi-la em logs:
 docker exec openwa-api cat /app/data/.api-key
 ```
 
-Para produção, não use a chave administrativa como integração permanente. Crie no dashboard/API do OpenWA uma chave `operator`, sem `allowedChats`, limitada à sessão utilizada pelo Power-WA. O valor completo aparece somente uma vez na criação; armazene-o no gerenciador de segredos.
+O comando deve retornar a chave completa. Não use uma chave parcial, o `keyPrefix` exibido na listagem, `owa_k1_example_only` ou o nome do arquivo. Se o OpenWA tiver sido iniciado com outro nome de container, substitua `openwa-api` pelo nome correto.
+
+Também é possível abrir o dashboard do OpenWA em `http://127.0.0.1:2785`, entrar em **API Keys**, criar uma chave com role `operator` e copiar o valor completo no momento da criação. A chave completa é exibida somente uma vez. Para produção, não use a chave administrativa como integração permanente; crie uma chave `operator`, sem `allowedChats`, e limite-a à sessão depois que o ID da sessão for conhecido.
+
+No Windows CMD, valide a chave sem colocá-la no código:
+
+```bat
+curl http://127.0.0.1:2785/api/sessions -H "X-API-Key: SUA_CHAVE_COMPLETA"
+```
+
+Se a chave estiver correta, o OpenWA responderá com uma lista JSON. Se responder `Invalid API key`, a chave não pertence à instância/volume do OpenWA que está rodando. Leia novamente a chave do container correto ou crie uma nova no dashboard.
 
 ### `OPENWA_SESSION_NAME`
 
@@ -86,6 +96,18 @@ npm run dev
 4. Escaneie o QR mostrado no painel pelo celular em **WhatsApp → Configurações → Aparelhos conectados → Conectar aparelho**.
 
 5. Depois que o estado aparecer como `ready`, o Power-WA passa a usar essa sessão para enviar as perguntas da triagem.
+
+### Windows CMD sem Docker Bash
+
+O OpenWA oficial recomenda Docker para a instalação rápida. No CMD, os comandos equivalentes são:
+
+```bat
+docker ps
+docker exec openwa-api cat /app/data/.api-key
+curl http://127.0.0.1:2785/api/health
+```
+
+Copie a saída do segundo comando para `OPENWA_API_KEY` no `.env` do Power-WA, sem aspas extras e sem espaços. Se você montou outro diretório de dados ou usou outro container, a chave precisa ser lida da mesma instância que atende `127.0.0.1:2785`; uma chave de uma instalação antiga ou de outro volume resulta em `Invalid API key`.
 
 ## Webhook
 
